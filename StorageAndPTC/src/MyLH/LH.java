@@ -2,6 +2,9 @@ package MyLH;
 
 import PBStorage.PBFileEntry;
 import PBStorage.PBStorage;
+import PTCFramework.ConsumerIterator;
+import PTCFramework.PTCFramework;
+import PTCFramework.ProducerIterator;
 
 public class LH {
 	
@@ -49,6 +52,10 @@ public class LH {
 	public static void main(String[] args) throws Exception {
 		LH lh = new LH();
 		lh.initializeFileSystem();
+		ProducerIterator<byte []> textFileProducerIterator= new TextFileScanIterator();
+		ConsumerIterator<byte []> relationConsumerIterator = new PutTupleInRelationIterator(35,"SimpleStorage");
+		PTCFramework<byte[],byte[]> fileToRelationFramework= new TextFileToRelationPTC(textFileProducerIterator, relationConsumerIterator);
+		fileToRelationFramework.run();
 	}
 
 }
