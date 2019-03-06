@@ -4,12 +4,12 @@ public class PBFileEntry{
 		private String name;
 		private String homePage;
 		private String LtoP_Map;
-		private Integer M;
-		private Integer sP;
-		private Integer NumOfPages;
-		private Float ACL_Min;
-		private Float ACL_Max;
-		private Float ACL;
+		private int M;
+		private int sP;
+		private int NumOfPages;
+		private double ACL_Min;
+		private double ACL_Max;
+		private double ACL;
 		
 		public void setName(String name){
 			this.name = name;
@@ -28,59 +28,59 @@ public class PBFileEntry{
 		}
 
 		public String getLtoP_Map() {
-			return LtoP_Map;
+			return this.LtoP_Map;
 		}
 
 		public void setLtoP_Map(String ltoP_Map) {
-			LtoP_Map = ltoP_Map;
+			this.LtoP_Map = ltoP_Map;
 		}
 
-		public Integer getM() {
-			return M;
+		public int getM() {
+			return this.M;
 		}
 
-		public void setM(Integer m) {
-			M = m;
+		public void setM(int m) {
+			this.M = m;
 		}
 
-		public Integer getsP() {
+		public int getsP() {
 			return sP;
 		}
 
-		public void setsP(Integer sP) {
+		public void setsP(int sP) {
 			this.sP = sP;
 		}
 
-		public Integer getNumOfPages() {
-			return NumOfPages;
+		public int getNumOfPages() {
+			return this.NumOfPages;
 		}
 
-		public void setNumOfPages(Integer numOfPages) {
-			NumOfPages = numOfPages;
+		public void setNumOfPages(int numOfPages) {
+			this.NumOfPages = numOfPages;
 		}
 
-		public Float getACL_Min() {
-			return ACL_Min;
+		public double getACL_Min() {
+			return this.ACL_Min;
 		}
 
-		public void setACL_Min(Float aCL_Min) {
-			ACL_Min = aCL_Min;
+		public void setACL_Min(double aCL_Min) {
+			this.ACL_Min = aCL_Min;
 		}
 
-		public Float getACL_Max() {
+		public double getACL_Max() {
 			return ACL_Max;
 		}
 
-		public void setACL_Max(Float aCL_Max) {
-			ACL_Max = aCL_Max;
+		public void setACL_Max(double aCL_Max) {
+			this.ACL_Max = aCL_Max;
 		}
 
-		public Float getACL() {
-			return ACL;
+		public double getACL() {
+			return this.ACL;
 		}
 
-		public void setACL(Float aCL) {
-			ACL = aCL;
+		public void setACL(double aCL) {
+			this.ACL = aCL;
 		}	
 		
 }
