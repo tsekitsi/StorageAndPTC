@@ -1,3 +1,4 @@
 # StorageAndPTC
-## Monday, March 4th
-Created GitHub repository with all initial files as provided by the TA.
+## Implementation so far:
+We have created a GitHub repository, which we have attached to our email as well. In this repository ...
+## Future work:
