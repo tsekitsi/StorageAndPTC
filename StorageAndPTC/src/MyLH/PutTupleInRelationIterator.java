@@ -3,10 +3,10 @@ package MyLH;
 import java.nio.ByteBuffer;
 
 import PTCFramework.ConsumerIterator;
-import StorageManager.Storage;
+import PBStorage.PBStorage;
 
 public class PutTupleInRelationIterator implements ConsumerIterator<byte []>{
-	Storage storage;
+	PBStorage storage;
 	long currentpage;
 	int byteswrittentopage;
 	int tuplelength;
@@ -19,7 +19,7 @@ public class PutTupleInRelationIterator implements ConsumerIterator<byte []>{
 	}
 	
 	public void open() throws Exception{
-		storage= new Storage();
+		storage= new PBStorage();
 		storage.LoadStorage(fileName);
 		pageSize=storage.pageSize;
 		currentpage=-1;

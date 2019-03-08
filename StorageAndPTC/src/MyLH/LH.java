@@ -20,13 +20,13 @@ public class LH {
 	private String folderName = ".";
 	private int pageSize = 1024;
 	
-	//insert
+	// insert
 	
-	//delete
+	// delete
 	
-	//load (?)
+	// load (?)
 	
-	private void initializeFileSystem() throws Exception {
+	private void initializeFileSystem() {
 		// initialize LH file:
 		String path_of_LtoPfile = "";
 		createLtoPfile(path_of_LtoPfile);
@@ -39,9 +39,6 @@ public class LH {
 		e.setNumOfPages(numOfPages);
 		e.setACL_Min(acl_Min);
 		e.setACL_Max(acl_Max);
-		// create PBStorage:
-		//PBStorage pbs = new PBStorage();
-		//pbs.CreateStorage(folderName, pageSize, numOfPages);
 	}
 
 	private void createLtoPfile(String path) {
@@ -49,11 +46,15 @@ public class LH {
 		
 	}
 	
+	private void write_LtoPfile() { // or boolean
+		// TODO writes to serialized logical-to-physical mapping file.
+	}
+	
 	public static void main(String[] args) throws Exception {
 		LH lh = new LH();
 		lh.initializeFileSystem();
 		ProducerIterator<byte []> textFileProducerIterator= new TextFileScanIterator();
-		ConsumerIterator<byte []> relationConsumerIterator = new PutTupleInRelationIterator(35,"SimpleStorage");
+		ConsumerIterator<byte []> relationConsumerIterator = new PutTupleInRelationIterator(35,".");
 		PTCFramework<byte[],byte[]> fileToRelationFramework= new TextFileToRelationPTC(textFileProducerIterator, relationConsumerIterator);
 		fileToRelationFramework.run();
 	}
