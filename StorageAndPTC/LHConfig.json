@@ -1,15 +1,1 @@
-{
-	"FileName": "MyLHFile",
-	"homePage": "-1",
-
-	"LtoP_File": "LtoP_File.txt",
-
-	"M": 3,
-	"sP": 0,
-
-	"NumOfPages": 3,
-
-	"ACL_Min": 1.25,
-	"ACL_Max": 1.50,
-	"ACL": 1.00
-}
+{"NumOfPages":3,"FileName":"MyLHFile","ACL_Min":1,"ACL_Max":0,"ACL":0,"homePage":"homePage","M":1994,"sP":3,"LtoP_File":"LtoP_File.txt"}

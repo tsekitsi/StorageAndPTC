@@ -107,7 +107,11 @@ public class LH {
 			jo.put("ACL_Min", ACL_Min_now);
 			jo.put("ACL_Max", ACL_Max_now);
 			jo.put("ACL", ACL_now);
-		} catch (JSONException e) {
+			PrintWriter pw = new PrintWriter("LHConfig.json");
+			pw.write(jo.toString());
+			pw.flush();
+			pw.close();
+		} catch (JSONException | FileNotFoundException e) {
 			e.printStackTrace();
 		}
 	}
@@ -140,6 +144,7 @@ public class LH {
 	
 	public static void main(String[] args) throws Exception {
 		initializeFileSystem();
+		updateLHConfig();
 		//insertTuple("Emp.txt");
 		/*
 		LH lh = new LH();
