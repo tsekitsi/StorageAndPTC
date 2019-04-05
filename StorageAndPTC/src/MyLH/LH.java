@@ -2,6 +2,7 @@ package MyLH;
 
 import PBStorage.PBFileEntry;
 import PBStorage.PBStorage;
+import PBStorage.TestPBStorage;
 import PTCFramework.ConsumerIterator;
 import PTCFramework.PTCFramework;
 import PTCFramework.ProducerIterator;
@@ -13,11 +14,16 @@ import PTCFramework.ProducerIterator;
 //import java.io.IOException;
 import java.io.*;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Scanner;
+
 import org.json.*;
 
 public class LH {
 	
 	private static PBFileEntry e = new PBFileEntry();
+	private static PBStorage MyStorage = new PBStorage();
 	
 	// file-related:
 //	private static Integer m;
@@ -28,8 +34,9 @@ public class LH {
 //	private double acl;
 	
 	// storage-related:
-	private String folderName = ".";
-	private int pageSize = 1024;
+	private static String folderName = ".";
+	private static int pageSize = 1024;
+	private static int nPages = 3;
 	
 	// insert
 	private static void insertTuples(String fileName) {
@@ -52,16 +59,36 @@ public class LH {
 	
 	// insert single tuple
 	private static void insertTuple(String tuple) {
+		
+		// Check if we need to split:
+		if (e.getACL()>e.getACL_Max()) {
+			split();
+		}
+		
 		String[] str = tuple.split(",");
 		int key = Integer.parseInt(str[0]);
-		int result = key%e.getM();
+		Integer result = key%e.getM();
+		
 		// INSERT TO CHAIN INDEXED result
+		// reading LtoP_file:			
+		String jsonData = readFile("LtoP_File.json");
+		try {
+			JSONObject LtoP_map = new JSONObject(jsonData);
+			long physicalAddress = LtoP_map.getInt(result.toString());
+			
+		} catch (JSONException e) {
+			e.printStackTrace();
+		}
+		
 		System.out.println(Arrays.toString(str));
 	}
 	
+	private static void split() {
+		// TODO Auto-generated method stub
+		
+	}
+
 	// delete
-	
-	// load (?)
 	
 	private static void initializeFileSystem() {
 		try {
@@ -70,7 +97,6 @@ public class LH {
 			JSONObject jobj = new JSONObject(jsonData);
 			
 			String path_of_LtoPfile = jobj.getString("LtoP_File");
-			createLtoPfile(path_of_LtoPfile);
 			
 			// initializing LH file:
 			e.setName(jobj.getString("FileName"));
@@ -92,7 +118,7 @@ public class LH {
 		double ACL_Max_now = e.getACL_Max();
 		double ACL_Min_now = e.getACL_Min();
 		int NumOfPages_now = e.getNumOfPages();
-		int sP_now = e.getNumOfPages();
+		int sP_now = e.getsP();
 		int M_now = e.getM();
 		
 		// write new, updated LHConfig:
@@ -116,9 +142,18 @@ public class LH {
 		}
 	}
 
-	private static void createLtoPfile(String path) {
-		// TODO Auto-generated method stub
-		
+	private static void createLtoPfile(Map<Integer,Long> map, String path) {
+		JSONObject jo = new JSONObject();
+		try {
+			for (Map.Entry<Integer,Long> entry : map.entrySet())
+	            jo.put(entry.getKey().toString(), entry.getValue()); 
+			PrintWriter pw = new PrintWriter(path);
+			pw.write(jo.toString());
+			pw.flush();
+			pw.close();
+		} catch (JSONException | FileNotFoundException e) {
+			e.printStackTrace();
+		}
 	}
 	
 	private void write_LtoPfile() { // or boolean
@@ -142,18 +177,46 @@ public class LH {
 	    return result;
 	}
 	
-	public static void main(String[] args) throws Exception {
+	private static void createStorage(String fName, int pSize, int numPages) {
+		String folderName = fName;
+		int pageSize = pSize;
+		int nPages = numPages;
+		try {
+			MyStorage.CreateStorage(folderName, pageSize, nPages);
+			System.out.println(
+					"--Storage has been created successfully" + "with length " + MyStorage.PBFile.length());
+			MyStorage.LoadStorage(folderName);
+			System.out.println(
+					"--Storage has been loaded successfully" + "with length " + MyStorage.PBFile.length());
+			// reading LHConfig:			
+			String jsonData = readFile("LHConfig.json");
+			JSONObject jobj = new JSONObject(jsonData);
+			int M_now = jobj.getInt("M");
+			
+			Map<Integer,Long> map = new HashMap<>();
+			for(int i=0; i<M_now; i++) {
+				long physicalAddress = MyStorage.AllocatePage();
+				map.put(i, physicalAddress);
+			}
+			String path_of_LtoPfile = jobj.getString("LtoP_File");
+			createLtoPfile(map,path_of_LtoPfile);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+	
+	private void loadStorage(String folderName) {
+		try {
+			MyStorage.LoadStorage(folderName);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+	
+	public static void main(String[] args) {
 		initializeFileSystem();
-		updateLHConfig();
-		//insertTuple("Emp.txt");
-		/*
-		LH lh = new LH();
-		lh.initializeFileSystem();
-		ProducerIterator<byte []> textFileProducerIterator= new TextFileScanIterator();
-		ConsumerIterator<byte []> relationConsumerIterator = new PutTupleInRelationIterator(35,".");
-		PTCFramework<byte[],byte[]> fileToRelationFramework= new TextFileToRelationPTC(textFileProducerIterator, relationConsumerIterator);
-		fileToRelationFramework.run();
-		*/
+		createStorage(folderName, pageSize, nPages);
+		//updateLHConfig();
 	}
 
 }
