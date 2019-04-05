@@ -17,13 +17,15 @@ import org.json.*;
 
 public class LH {
 	
+	private static PBFileEntry e = new PBFileEntry();
+	
 	// file-related:
-	private static Integer m;
-	private static Integer sP;
-	private static Integer numOfPages;
-	private static double acl_Min;
-	private static double acl_Max;
-	private double acl;
+//	private static Integer m;
+//	private static Integer sP;
+//	private static Integer numOfPages;
+//	private static double acl_Min;
+//	private static double acl_Max;
+//	private double acl;
 	
 	// storage-related:
 	private String folderName = ".";
@@ -52,7 +54,7 @@ public class LH {
 	private static void insertTuple(String tuple) {
 		String[] str = tuple.split(",");
 		int key = Integer.parseInt(str[0]);
-		int result = key%m;
+		int result = key%e.getM();
 		// INSERT TO CHAIN INDEXED result
 		System.out.println(Arrays.toString(str));
 	}
@@ -63,15 +65,14 @@ public class LH {
 	
 	private static void initializeFileSystem() {
 		try {
-			// reading the parameters from LHConfig:			
+			// reading LHConfig:			
 			String jsonData = readFile("LHConfig.json");
 			JSONObject jobj = new JSONObject(jsonData);
 			
 			String path_of_LtoPfile = jobj.getString("LtoP_File");
 			createLtoPfile(path_of_LtoPfile);
 			
-			// initialize LH file:
-			PBFileEntry e = new PBFileEntry();
+			// initializing LH file:
 			e.setName(jobj.getString("FileName"));
 			e.setHomePage("homePage");
 			e.setLtoP_Map(path_of_LtoPfile);
@@ -81,6 +82,31 @@ public class LH {
 			e.setACL_Min(jobj.getDouble("ACL_Min"));
 			e.setACL_Min(jobj.getDouble("ACL_Max"));
 			e.setACL_Min(jobj.getDouble("ACL"));
+		} catch (JSONException e) {
+			e.printStackTrace();
+		}
+	}
+	
+	private static void updateLHConfig() {
+		double ACL_now = e.getACL();
+		double ACL_Max_now = e.getACL_Max();
+		double ACL_Min_now = e.getACL_Min();
+		int NumOfPages_now = e.getNumOfPages();
+		int sP_now = e.getNumOfPages();
+		int M_now = e.getM();
+		
+		// write new, updated LHConfig:
+		JSONObject jo = new JSONObject();
+		try {
+			jo.put("FileName", e.getName());
+			jo.put("homePage", e.getHomePage());
+			jo.put("LtoP_File", e.getLtoP_Map());
+			jo.put("M", M_now);
+			jo.put("sP", sP_now);
+			jo.put("NumOfPages", NumOfPages_now);
+			jo.put("ACL_Min", ACL_Min_now);
+			jo.put("ACL_Max", ACL_Max_now);
+			jo.put("ACL", ACL_now);
 		} catch (JSONException e) {
 			e.printStackTrace();
 		}
