@@ -108,6 +108,7 @@ public class LH {
 			e.setACL_Min(jobj.getDouble("ACL_Min"));
 			e.setACL_Min(jobj.getDouble("ACL_Max"));
 			e.setACL_Min(jobj.getDouble("ACL"));
+			 int recordSize = jobj.getInt("Record_len");
 		} catch (JSONException e) {
 			e.printStackTrace();
 		}
