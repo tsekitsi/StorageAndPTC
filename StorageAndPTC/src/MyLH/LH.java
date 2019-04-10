@@ -75,7 +75,11 @@ public class LH {
 		try {
 			JSONObject LtoP_map = new JSONObject(jsonData);
 			long physicalAddress = LtoP_map.getInt(result.toString());
-			
+			// currentPage <-- read page at the physical address just calculated
+			while (isFull(currentPage)) {
+				// currentPage <-- currentPage.next
+			}
+			appendTupleToPage(tuple, currentPage);
 		} catch (JSONException e) {
 			e.printStackTrace();
 		}
@@ -85,7 +89,12 @@ public class LH {
 	
 	private static void split() {
 		// TODO Auto-generated method stub
-		
+		if (e.getsP()+1 == e.getM()) {
+			e.setM(2*e.getM());
+			e.setsP(0);
+		}
+		e.setsP(e.getsP()+1);
+		// create new chain.
 	}
 
 	// delete
