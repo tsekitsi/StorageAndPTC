@@ -223,6 +223,62 @@ public class LH {
 		}
 	}
 	
+	public static long byteArrayToLong(byte[] byteArray) {
+		long value = 0;
+		for (int i = 0; i < byteArray.length; i++) {
+
+			value += ((long) byteArray[i] & 0xffL) << (8 * (7 - i));
+		}
+		return value;
+	}
+	
+	public static int byteArrayToInt(byte[] b) {
+		int value = 0;
+		for (int i = 0; i < 4; i++) {
+			int shift = (4 - 1 - i) * 8;
+			value += (b[i] & 0x000000FF) << shift;
+		}
+		return value;
+	}
+	
+	public static byte[] longToByteArray(long value) {
+		byte[] array = new byte[8];
+		for (int i = 7; i >= 0; i--) {
+			array[7 - i] = (byte) (value >> i * 8);
+		}
+		return array;
+	}
+	
+	public static final byte[] intToByteArray(int value) {
+		return new byte[] { (byte) (value >>> 24), (byte) (value >>> 16), (byte) (value >>> 8), (byte) value };
+	}
+	
+	public static long getNextPage(byte[] page) {
+		return byteArrayToLong(Arrays.copyOfRange(page, 0, 8));
+	}
+
+	public static int getNoOfRecords(byte[] page) {
+		return byteArrayToInt(Arrays.copyOfRange(page, 8, 12));
+	}
+	
+	public static void putNextPagePointer(byte[] tempBuffer, long n) {
+		// First 24 bytes for header
+		// First 8 bytes for next page pointer (initially -1)
+		for (int j = 0; j < longToByteArray(n).length; j++) {
+			tempBuffer[j] = longToByteArray(n)[j];
+		}
+
+	}
+
+	public static void putNumberOfRecords(byte[] tempBuffer, int n) {
+		// next 4 bytes for number of records (initially 0)
+		int k = 0;
+		for (int j = 8; j < 8 + intToByteArray(n).length; j++) {
+			tempBuffer[j] = intToByteArray(n)[k];
+			k++;
+		}
+	}
+	
 	public static void main(String[] args) {
 		initializeFileSystem();
 		createStorage(folderName, pageSize, nPages);
