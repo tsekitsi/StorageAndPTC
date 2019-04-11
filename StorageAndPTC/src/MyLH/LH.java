@@ -1,7 +1,5 @@
 package MyLH;
 
-import PBStorage.PBFileEntry;
-import PBStorage.PBStorage;
 import PTCFramework.PTCFramework;
 import PTCFramework.GetTupleFromRelationIterator;
 import PTCFramework.TextFileScanIterator;
@@ -27,11 +25,15 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.gson.reflect.TypeToken;
 
+import MyPBStorage.LHFile;
+import MyPBStorage.PBFileEntry;
+import MyPBStorage.PBStorage;
+
 public class LH {
 	
 	private static PBFileEntry e = new PBFileEntry();
 	private static LHFile MyLHFile = new LHFile();
-	private static PBStorage MyStorage = new PBStorage();
+	static PBStorage MyStorage = new PBStorage();
 	
 	// storage-related:
 	private static String folderName = ".";
@@ -57,7 +59,7 @@ public class LH {
 		}
 	}
 	
-	// insert single tuple
+	
 	private static void insertTuple(String tuple) {
 		
 		// Check if we need to split:
@@ -228,25 +230,19 @@ public class LH {
 				MyLHFile.setFileName(temp.get("fileName").getAsString());
 				MyLHFile.setHomePage(temp.get("homePage").getAsInt());
 				MyLHFile.setLtoP_File(temp.get("LtoP_File").getAsString());
-				MyLHFile.setTupleLength(80);
-				MyLHFile.setTuplesPerPage(10);
+				MyLHFile.setTupleLength(100);
+				MyLHFile.setTuplesPerPage(7);
 				MyLHFile.setCurTupleLength(tuple.length);
 				HashMap<Integer, String> hm = (HashMap) MyStorage
 						.deserializeMap(MyStorage.PBFilesDirectory + "/" + MyLHFile.getLtoP_File());
 				int n = key.getKey() % MyLHFile.getM();
 				n = n < MyLHFile.getsP() ? key.getKey() % (MyLHFile.getM() * 2) : n;
-				//System.out.println("M->"+ curLHConfig.getM()+"SP->"+curLHConfig.getsP()+"n->"+n);
-				//System.out.println(hm.toString());
 				long n1 = Long.parseLong(hm.get(n));
-				// System.out.println("n->"+n);
-				// System.out.println("hashmap->"+hm.toString());
 				int status = addTupleToPage(tuple, n1, hm);
 				boolean configUpdate = MyStorage.removePBFileEntry(MyLHFile.getFileName());
 				configUpdate = upadteLHFile(MyLHFile);
-				System.out.println("------------------------");
 				MyStorage.serializeMap(MyStorage.PBFilesDirectory+"/LtoP.ser", hm);
 				
-				// System.out.println(configUpdate);
 
 			}
 		} catch (FileNotFoundException e) {
@@ -350,33 +346,33 @@ public class LH {
 	    return result;
 	}
 	
-	private static void create_Storage(String fName, int pSize, int numPages) {
-		String folderName = fName;
-		int pageSize = pSize;
-		int nPages = numPages;
-		try {
-			MyStorage.CreateStorage(folderName, pageSize, nPages);
-			System.out.println(
-					"--Storage has been created successfully" + "with length " + MyStorage.PBFile.length());
-			MyStorage.LoadStorage(folderName);
-			System.out.println(
-					"--Storage has been loaded successfully" + "with length " + MyStorage.PBFile.length());
-			// reading LHConfig:			
-			String jsonData = readFile("LHConfig.json");
-			JSONObject jobj = new JSONObject(jsonData);
-			int M_now = jobj.getInt("M");
-			
-			Map<Integer,Long> map = new HashMap<>();
-			for(int i=0; i<M_now; i++) {
-				long physicalAddress = MyStorage.AllocatePage();
-				map.put(i, physicalAddress);
-			}
-			String path_of_LtoPfile = jobj.getString("LtoP_File");
-			createLtoPfile(map,path_of_LtoPfile);
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-	}
+//	private static void create_Storage(String fName, int pSize, int numPages) {
+//		String folderName = fName;
+//		int pageSize = pSize;
+//		int nPages = numPages;
+//		try {
+//			MyStorage.CreateStorage(folderName, pageSize, nPages);
+//			System.out.println(
+//					"--Storage has been created successfully" + "with length " + MyStorage.PBFile.length());
+//			MyStorage.LoadStorage(folderName);
+//			System.out.println(
+//					"--Storage has been loaded successfully" + "with length " + MyStorage.PBFile.length());
+//			// reading LHConfig:			
+//			String jsonData = readFile("LHConfig.json");
+//			JSONObject jobj = new JSONObject(jsonData);
+//			int M_now = jobj.getInt("M");
+//			
+//			Map<Integer,Long> map = new HashMap<>();
+//			for(int i=0; i<M_now; i++) {
+//				long physicalAddress = MyStorage.AllocatePage();
+//				map.put(i, physicalAddress);
+//			}
+//			String path_of_LtoPfile = jobj.getString("LtoP_File");
+//			createLtoPfile(map,path_of_LtoPfile);
+//		} catch (Exception e) {
+//			e.printStackTrace();
+//		}
+//	}
 	
 //	private void loadStorage(String folderName) {
 //		try {
@@ -451,10 +447,10 @@ public class LH {
 	
 	public static int addTupleToPage(byte[] tuple, long n, HashMap<Integer, String> map) {
 		try {
-			System.out.println("key->" + byteArrayToInt(Arrays.copyOfRange(tuple, 0, 4)));
+			System.out.println("pageID->" + byteArrayToInt(Arrays.copyOfRange(tuple, 0, 4)));
 			byte[] tempBuffer = new byte[MyStorage.pageSize];
 			if (n == -1) {
-				System.out.println("file does not exist");
+				System.out.println("Error Reading File");
 			}
 			MyStorage.ReadPage(n, tempBuffer);
 			byte[] no_of_tuples = new byte[4];
@@ -509,7 +505,7 @@ public class LH {
 			MyLHFile.setACL(acl);
 			System.out.println(acl);
 			while (acl > MyLHFile.getACL_MAX()) {
-				System.out.println("before"+acl);
+				System.out.println("Existing"+acl);
 				split(map);
 				if (MyLHFile.getsP() < MyLHFile.getM() - 1) {
 					MyLHFile.setsP(MyLHFile.getsP() + 1);
@@ -570,74 +566,73 @@ public class LH {
 	}
 	
 	public static void main(String[] args) {
-		System.out.println("Type 'list commands' to start:");
-		PBStorage pbStorage = new PBStorage();
+		System.out.println("Enter your choice of operations below:");
+		System.out.println("Available operations are:");
+		System.out.println("1. CreateAndLoad folderPath pageSize No.of Pages;");
+		System.out.println("2. LoadAndStore_LtoP folderPath");
+		System.out.println("3. LoadStorageAndGet_LtoP folderPath");
+		System.out.println("4. LoadAndWrite folderPath");
+		PBStorage my_storage = new PBStorage();
 		boolean stop = false;
 		while (!stop) {
 			@SuppressWarnings("resource")
 			Scanner scanner = new Scanner(System.in);
 			String command = scanner.nextLine();
 			String[] commands = command.split(" ");
-			if (commands[0].equalsIgnoreCase("list") && commands[1].equalsIgnoreCase("commands")) {
-				System.out.println("Command Lists are follows:");
-				System.out.println("1. Create_Load folderPath pageSize No.of Files;");
-				System.out.println("2. Load_Store_LtoP folderPath");
-				System.out.println("3. Load_get_LtoP folderPath");
-				System.out.println("4. Load_Write folderPath");
-			} else if (commands[0].equalsIgnoreCase("Create_Load")) {
-				String folderName = commands[1];
+			if (commands[0].equalsIgnoreCase("CreateAndLoad")) {
+				String folder_name = commands[1];
 				int page_size = Integer.parseInt(commands[2]);
 				int page_num = Integer.parseInt(commands[3]);
 				try {
-					MyStorage.createStorage(folderName, pageSize, nPages);
+					my_storage.createStorage(folder_name, page_size, page_num);
 					System.out.println(
-							"Storage has been created successfully" + "with length " + pbStorage.PBFile.length());
-					MyStorage.loadStorage(folderName);
+							"Storage has been created successfully" + "with length " + my_storage.PBFile.length());
+					my_storage.loadStorage(folder_name);
 					System.out.println(
-							"Storage has been loaded successfully" + "with length " + pbStorage.PBFile.length());
+							"Storage has been loaded successfully" + "with length " + my_storage.PBFile.length());
 				} catch (Exception e) {
 					e.printStackTrace();
 				}
 
-			}else if (commands[0].equalsIgnoreCase("Load_Store_LtoP")) {
-				// Creating a LtoP_Map
+			}else if (commands[0].equalsIgnoreCase("LoadStorageAndGet_LtoP")) {
+				// Creating a LtoP mapping file
 				Map<Integer, String> LtoP = new HashMap<Integer, String>();
 				try {
 					
 					String folderName = commands[1];
 					// Loading Storage
-					MyStorage.loadStorage(folderName);
-					pbStorage.printStats();
-					MyStorage.addLHConfigEntry("pages", -1, "LtoP.ser", (float)1.50, (float)1.50, (float)1.25, 3, 0, 3, 0);
+					my_storage.loadStorage(folderName);
+					my_storage.printStats();
+					my_storage.addLHConfigEntry("pages", -1, "LtoP.ser", (float)1.50, (float)1.50, (float)1.25, 3, 0, 3, 0);
 					
-					//Allocating M pages
+					//Allocating M pages, initially M =3
 					int m = 3;
 					byte[] tempBuffer;
 					for(int i = 0; i < m; i++) {
-						long page = pbStorage.AllocatePage();
+						long page = my_storage.AllocatePage();
 						if(page == -1) {
 							throw new RuntimeException();
 						}
-						tempBuffer = new byte[pbStorage.pageSize];
-						//First 24 bytes for header and 8 bytes for next page pointer (initially -1)
+						tempBuffer = new byte[my_storage.pageSize];
+						//First 24 bytes for header and 8 bytes for next page pointer, initially -1
 						int counter = 0;
 						for(int j = 0; j < longToByteArray(-1).length; j++) {
 							tempBuffer[j] = longToByteArray(-1)[j];
 							counter = j;
 						}
-						//4 bytes for number of tuples (initially 0)
+						//4 bytes for number of records, initially 0
 						byte[] test = new byte[4];
 						int l = 0, k = 0;
-						for(int j = counter + 1; j < 8 + intToByteArray(0).length; j++) {
-							tempBuffer[j] = intToByteArray(0)[k++];
+						for(int j = counter + 1; j < 8 + LH.intToByteArray(0).length; j++) {
+							tempBuffer[j] = LH.intToByteArray(0)[k++];
 							counter = j;
-							test[l] = intToByteArray(0)[l];
+							test[l] = LH.intToByteArray(0)[l];
 							l++;
 						}
 						LtoP.put(i, Long.toString(page));
-						pbStorage.WritePage(page, tempBuffer);
+						my_storage.WritePage(page, tempBuffer);
 					}
-					FileOutputStream fos = new FileOutputStream(pbStorage.PBFilesDirectory+"/LtoP.ser");
+					FileOutputStream fos = new FileOutputStream(my_storage.PBFilesDirectory+"/LtoP.ser");
 					ObjectOutputStream oos = new ObjectOutputStream(fos);
 					oos.writeObject(LtoP);
 					oos.close();
@@ -650,18 +645,18 @@ public class LH {
 				}catch (Exception e) {
 					e.printStackTrace();
 				}
-			} else if(commands[0].equalsIgnoreCase("Load_get_LtoP")) {
+			} else if(commands[0].equalsIgnoreCase("LoadAndWrite")) {
 				
 				String folderName = commands[1];
 				try {
 					// Load Storage
-					MyStorage.loadStorage(folderName);
-					pbStorage.printStats();
-					String filename = MyStorage.getLtoPFileName("LtoPFile");
-					System.out.println(pbStorage.PBFilesDirectory+"/"+filename);
-					HashMap<Integer, String> LtoP = pbStorage.deserializeMap(pbStorage.PBFilesDirectory+"/"+filename);
+					my_storage.loadStorage(folderName);
+					my_storage.printStats();
+					String filename = my_storage.getLtoPFileName("LtoPFile");
+					System.out.println(my_storage.PBFilesDirectory+"/"+filename);
+					HashMap<Integer, String> LtoP = my_storage.deserializeMap(my_storage.PBFilesDirectory+"/"+filename);
 					System.out.println(Arrays.asList(LtoP));
-					printStorage(LtoP);
+					LH.printStorage(LtoP);
 				}catch(Exception e) {
 					e.printStackTrace();
 				}
@@ -670,11 +665,11 @@ public class LH {
 				String folderName = commands[1];
 				try {
 					// Load Storage
-					MyStorage.loadStorage(folderName);
-					pbStorage.printStats();
-					MyStorage = pbStorage;
+					my_storage.loadStorage(folderName);
+					my_storage.printStats();
+					LH.MyStorage = my_storage;
 					ProducerIterator<byte []> textFileProducerIterator= new TextFileScanIterator();
-					ConsumerIterator<byte []> relationConsumerIterator = new GetTupleFromRelationIterator(35,"myDisk1");
+					ConsumerIterator<byte []> relationConsumerIterator = new GetTupleFromRelationIterator(65,"myDisk1");
 					PTCFramework<byte[],byte[]> fileToRelationFramework= new TextFileToRelationPTC(textFileProducerIterator, relationConsumerIterator);
 					fileToRelationFramework.run();
 				}catch(Exception e) {
@@ -682,7 +677,7 @@ public class LH {
 				}
 			}
 			else {
-				System.out.println("Invalid Command! Rerun..");
+				System.out.println("Invalid Command! Please try again!!");
 				stop = true;
 			}
 		}

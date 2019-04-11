@@ -1,4 +1,4 @@
-package PBStorage;
+package MyPBStorage;
 
 public class PBFileEntry{
 		private String name;

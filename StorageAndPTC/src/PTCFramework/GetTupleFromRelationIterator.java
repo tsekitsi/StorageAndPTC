@@ -28,8 +28,5 @@ public class GetTupleFromRelationIterator implements ConsumerIterator <byte []>{
 		LH.initializeFileSystem(tuple);
 	}
 
-	@Override
-	public void remove() {
-		
-	}
+	
 }

@@ -1,4 +1,4 @@
-package PBStorage;
+package MyPBStorage;
 
 import java.io.RandomAccessFile;
 import java.io.File;
@@ -14,8 +14,6 @@ import java.io.FileOutputStream;
 
 import com.google.gson.*;
 import com.google.gson.reflect.TypeToken;
-
-import MyLH.LHFile;
 
 public class PBStorage {
 	public String PBFilesDirectory; // Folder where the storage exists
@@ -39,64 +37,6 @@ public class PBStorage {
 	 * track of allocation of pages. (num of pages) * (page size) - Actual data
 	 * present in the storage
 	 */
-
-	public void CreateStorage(String folderName, int pageSize, int nfiles) throws Exception {
-
-		this.PBFilesDirectory = folderName;
-		this.fileSize = nfiles * pageSize;
-		this.pageSize = pageSize;
-		String path = folderName + "/SimpleStorage";
-		new File(folderName).mkdirs();
-		this.numPages = (int) (this.fileSize / this.pageSize);
-
-		this.bitMapSize = (int) Math.ceil(this.numPages / 8.0);
-
-		if (this.bitMapSize % 16 != 0) {
-			this.bitMapSize = (this.bitMapSize / 16 + 1) * 16;
-		}
-		// Allocating 16 extra bytes in the beginning for storage of parameters such as
-		// pagesize.
-		this.bitMapSize = this.bitMapSize + 16;
-		this.PBFile = new RandomAccessFile(path, "rw");
-		PBFile.seek(0);
-		// Write the pagesize to the first 4 bytes in the file.
-		PBFile.writeInt(pageSize);
-
-		// Write number of pages to the next 4 bytes in the file
-		PBFile.seek(4);
-		PBFile.writeInt(this.numPages);
-
-		PBFile.seek(0);
-
-		this.fileSize = this.fileSize + this.bitMapSize;
-		PBFile.setLength(fileSize);
-		PBFile.seek(16);
-		// Writing 0s to the randomaccessfile so that we physically claim the memory
-		// required for the storage.
-		// first writing for the bitmap
-		for (int i = 16; i < this.bitMapSize; i++) {
-			this.PBFile.write((byte) 0);
-		}
-		// Writing the file contents with 0s
-		for (int i = this.bitMapSize; i < this.fileSize; i++) {
-			PBFile.write((byte) 0);
-		}
-		// Create FileIndex.json in the folder
-		String jsonFile = folderName + "/" + "FileIndex.json";
-		File f = new File(jsonFile);
-		f.createNewFile();
-
-		String empty = "{\"PBFiles\":[]}";
-		FileWriter fw;
-		try {
-			fw = new FileWriter(new File(jsonFile));
-			fw.write(empty);
-			fw.close();
-		} catch (IOException ex) {
-			ex.printStackTrace();
-		}
-
-	}
 
 	/*
 	 * Loading an existing storage. Set all the values like page size, folder Name ,
@@ -462,8 +402,6 @@ public class PBStorage {
 		if (this.bitMapSize % 16 != 0) {
 			this.bitMapSize = (this.bitMapSize / 16 + 1) * 16;
 		}
-		// Allocating 16 extra bytes in the beginning for storage of parameters such as
-		// pagesize.
 		this.bitMapSize = this.bitMapSize + 16;
 		this.PBFile = new RandomAccessFile(path, "rw");
 		PBFile.seek(0);
@@ -479,9 +417,7 @@ public class PBStorage {
 		this.fileSize = this.fileSize + this.bitMapSize;
 		PBFile.setLength(fileSize);
 		PBFile.seek(16);
-		// Writing 0s to the randomaccessfile so that we physically claim the memory
-		// required for the storage.
-		// first writing for the bitmap
+		// writing for the bitmap
 		for (int i = 16; i < this.bitMapSize; i++) {
 			this.PBFile.write((byte) 0);
 		}
