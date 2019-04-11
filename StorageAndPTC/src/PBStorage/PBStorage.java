@@ -2,11 +2,15 @@ package PBStorage;
 
 import java.io.RandomAccessFile;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileWriter;
 import java.io.FileReader;
 import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.util.*;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 
 import com.google.gson.*;
 import com.google.gson.reflect.TypeToken;
@@ -318,6 +322,38 @@ public class PBStorage {
 			e.printStackTrace();
 		}
 		return -1;
+	}
+
+	public HashMap deserializeMap(String filename) {
+		HashMap<Integer, String> map = null;
+		try {
+			FileInputStream f = new FileInputStream(filename);
+			ObjectInputStream o = new ObjectInputStream(f);
+			map = (HashMap) o.readObject();
+			o.close();
+			f.close();
+			return map;
+		} catch (IOException ioe) {
+			ioe.printStackTrace();
+			return null;
+		} catch (ClassNotFoundException c) {
+			System.out.println("Class not found");
+			c.printStackTrace();
+			return null;
+		}
+	}
+
+	public void serializeMap(String filename, HashMap<Integer, String> map) {
+		try{
+			FileOutputStream f = new FileOutputStream(filename);
+			ObjectOutputStream o = new ObjectOutputStream(f);
+			o.writeObject(map);
+			o.close();
+			f.close();
+		}catch(IOException err) {
+			System.out.println(err.getMessage());
+		}
+		
 	}
 
 }

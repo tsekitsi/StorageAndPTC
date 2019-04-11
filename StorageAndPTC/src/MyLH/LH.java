@@ -2,36 +2,27 @@ package MyLH;
 
 import PBStorage.PBFileEntry;
 import PBStorage.PBStorage;
-import PBStorage.TestPBStorage;
-import PTCFramework.ConsumerIterator;
-import PTCFramework.PTCFramework;
-import PTCFramework.ProducerIterator;
-
-//import java.io.BufferedReader;
-//import java.io.File;
-//import java.io.FileNotFoundException;
-//import java.io.FileReader;
-//import java.io.IOException;
 import java.io.*;
+import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
-import java.util.Scanner;
-
 import org.json.*;
+
+import com.google.gson.Gson;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import com.google.gson.reflect.TypeToken;
 
 public class LH {
 	
 	private static PBFileEntry e = new PBFileEntry();
+	private static LHFile MyLHFile = new LHFile();
 	private static PBStorage MyStorage = new PBStorage();
-	
-	// file-related:
-//	private static Integer m;
-//	private static Integer sP;
-//	private static Integer numOfPages;
-//	private static double acl_Min;
-//	private static double acl_Max;
-//	private double acl;
 	
 	// storage-related:
 	private static String folderName = ".";
@@ -61,9 +52,9 @@ public class LH {
 	private static void insertTuple(String tuple) {
 		
 		// Check if we need to split:
-		if (e.getACL()>e.getACL_Max()) {
-			split();
-		}
+		//if (e.getACL()>e.getACL_Max()) {
+		//	split();
+		//}
 		
 		String[] str = tuple.split(",");
 		int key = Integer.parseInt(str[0]);
@@ -76,10 +67,10 @@ public class LH {
 			JSONObject LtoP_map = new JSONObject(jsonData);
 			long physicalAddress = LtoP_map.getInt(result.toString());
 			// currentPage <-- read page at the physical address just calculated
-			while (isFull(currentPage)) {
+			//while (isFull(currentPage)) {
 				// currentPage <-- currentPage.next
-			}
-			appendTupleToPage(tuple, currentPage);
+			//}
+			//appendTupleToPage(tuple, currentPage);
 		} catch (JSONException e) {
 			e.printStackTrace();
 		}
@@ -87,70 +78,234 @@ public class LH {
 		System.out.println(Arrays.toString(str));
 	}
 	
-	private static void split() {
-		// TODO Auto-generated method stub
-		if (e.getsP()+1 == e.getM()) {
-			e.setM(2*e.getM());
-			e.setsP(0);
+	private static void split(HashMap<Integer, String> map) {
+		try {
+			// TODO Auto-generated method stub
+			long nextPage = MyStorage.AllocatePage();
+			if(nextPage == -1) {
+				throw new RuntimeException();
+			}
+			byte[] new_page = new byte[MyStorage.pageSize];
+			putNextPagePointer(new_page, -1);
+			putNumberOfRecords(new_page, 1);
+			MyLHFile.setNumOfPages(MyLHFile.getNumOfPages() + 1);
+			map.put(MyLHFile.getM() + MyLHFile.getsP(), Long.toString(nextPage));
+	
+			List<byte[]> tuplelist = new ArrayList<>();
+			List<byte[]> pages = new ArrayList<>();
+			List<Long> pageAdd = new ArrayList<>();
+			int pagesInChain = 0;
+			boolean next = true;
+	
+			Long page = Long.parseLong(map.get(MyLHFile.getsP()));
+			pageAdd.add(page);
+	
+			while (next) {
+				byte[] tempBuffer = new byte[MyStorage.pageSize];
+				MyStorage.ReadPage(page, tempBuffer);
+				pages.add(tempBuffer);
+				pagesInChain++;
+	
+				long np = getNextPage(tempBuffer);
+				if (np == -1)
+					next = false;
+				else {
+					page = np;
+					next = true;
+					pageAdd.add(np);
+				}
+	
+				int nr = getNoOfRecords(tempBuffer);
+				int start = 25, end = start + MyLHFile.getCurRecordLength();
+				for (int i = 0; i < nr; i++) {
+					byte[] tuple = new byte[MyLHFile.getCurRecordLength()];
+					int l = 0;
+					for (int j = start; j < end; j++)
+						tuple[l++] = tempBuffer[j];
+					start = start + MyLHFile.getRecordLength();
+					end = start + MyLHFile.getCurRecordLength();
+					tuplelist.add(tuple);
+				}
+	
+			}
+	
+			for(byte[] p : pages) {
+				for(int i = 25; i < p.length; i++)
+					p[i] = 0;
+				putNumberOfRecords(p, 0);
+			}
+			int entriesInChain = 0, tupInNewChain = 0;
+			int q = 0;
+			byte[] destPage = pages.get(q++);
+			int tupInCurPage = 0;
+			for (byte[] tuple : tuplelist) {
+				PageID k = new PageID(tuple);
+				int n = k.getKey() % (MyLHFile.getM() * 2);
+				System.out.println("key->"+k.getKey()+" goTo->"+n);
+				if (n == MyLHFile.getsP()) {
+					entriesInChain++;
+					if (tupInCurPage == MyLHFile.getRecordsPerPage()) {
+						tupInCurPage = 0;
+						destPage = pages.get(q++);
+						writeRecord(tuple, destPage, 25 + (tupInCurPage * MyLHFile.getRecordLength()));
+	
+					}
+					else {
+						writeRecord(tuple, destPage, 25 + (tupInCurPage * MyLHFile.getRecordLength()));
+						tupInCurPage++;
+						putNumberOfRecords(destPage, tupInCurPage);
+						
+					}
+				} else {
+					if (tupInNewChain == MyLHFile.getRecordsPerPage()) {
+						long pg = MyStorage.AllocatePage();
+						if(pg == -1) {
+							throw new RuntimeException();
+						}
+						MyLHFile.setNumOfPages(MyLHFile.getNumOfPages() + 1);
+						putNextPagePointer(new_page, pg);
+						MyStorage.WritePage(nextPage, new_page);
+						new_page = new byte[MyStorage.pageSize];
+						nextPage = pg;
+						tupInNewChain = 1;
+						putNextPagePointer(new_page, -1);
+						putNumberOfRecords(new_page, tupInNewChain);
+						writeRecord(tuple, new_page, 25 + (tupInNewChain * MyLHFile.getRecordLength()));
+	
+					} else {
+						writeRecord(tuple, new_page, 25 + (tupInNewChain * MyLHFile.getRecordLength()));
+	
+						tupInNewChain++;
+						putNumberOfRecords(new_page, tupInNewChain);
+					}
+				}
+				
+			}
+			MyStorage.WritePage(nextPage, new_page);
+			int pagesNeeded = (int) Math.ceil(entriesInChain / 7.0);
+			if(pagesNeeded != pages.size()) {
+				putNextPagePointer(pages.get(pagesNeeded - 1), -1);
+			}
+			
+			for (int i = pagesNeeded; i < pageAdd.size(); i++) {
+				MyStorage.DeAllocatePage(pageAdd.get(i));
+				MyLHFile.setNumOfPages(MyLHFile.getNumOfPages() - 1);
+			}
+	
+			for (int i = 0; i < pagesNeeded; i++) {
+				MyStorage.WritePage(pageAdd.get(i), pages.get(i));
+			}
+		} catch (RuntimeException e1) {
+			System.out.println("Insufficient Storage");
+		} catch (Exception e2) {
 		}
-		e.setsP(e.getsP()+1);
-		// create new chain.
 	}
 
 	// delete
 	
-	private static void initializeFileSystem() {
+	private static void initializeFileSystem(byte[] tuple) throws Exception {
+		PageID key = new PageID(tuple);
 		try {
-			// reading LHConfig:			
-			String jsonData = readFile("LHConfig.json");
-			JSONObject jobj = new JSONObject(jsonData);
-			
-			String path_of_LtoPfile = jobj.getString("LtoP_File");
-			
-			// initializing LH file:
-			e.setName(jobj.getString("FileName"));
-			e.setHomePage("homePage");
-			e.setLtoP_Map(path_of_LtoPfile);
-			e.setM(jobj.getInt("M"));
-			e.setsP(jobj.getInt("sP"));
-			e.setNumOfPages(jobj.getInt("NumOfPages"));
-			e.setACL_Min(jobj.getDouble("ACL_Min"));
-			e.setACL_Min(jobj.getDouble("ACL_Max"));
-			e.setACL_Min(jobj.getDouble("ACL"));
-			 int recordSize = jobj.getInt("Record_len");
-		} catch (JSONException e) {
+			JsonParser parser = new JsonParser();
+			Object obj = parser.parse(new FileReader(MyStorage.PBFilesDirectory + "/FileIndex.json"));
+			JsonObject jsonObject = (JsonObject) obj;
+			JsonArray file = (JsonArray) jsonObject.get("PBFiles");
+			for (JsonElement f : file) {
+				JsonObject temp = f.getAsJsonObject();
+				MyLHFile.setM(temp.get("M").getAsInt());
+				MyLHFile.setsP(temp.get("sP").getAsInt());
+				MyLHFile.setNumOfPages(temp.get("NumOfPages").getAsInt());
+				MyLHFile.setACL_Min(temp.get("ACL_Min").getAsFloat());
+				MyLHFile.setACL_MAX(temp.get("ACL_MAX").getAsFloat());
+				MyLHFile.setFileName(temp.get("fileName").getAsString());
+				MyLHFile.setHomePage(temp.get("homePage").getAsInt());
+				MyLHFile.setLtoP_File(temp.get("LtoP_File").getAsString());
+				MyLHFile.setRecordLength(100);
+				MyLHFile.setRecordsPerPage(7);
+				MyLHFile.setCurRecordLength(tuple.length);
+				HashMap<Integer, String> hm = (HashMap) MyStorage
+						.deserializeMap(MyStorage.PBFilesDirectory + "/" + MyLHFile.getLtoP_File());
+				int n = key.getKey() % MyLHFile.getM();
+				n = n < MyLHFile.getsP() ? key.getKey() % (MyLHFile.getM() * 2) : n;
+				//System.out.println("M->"+ curLHConfig.getM()+"SP->"+curLHConfig.getsP()+"n->"+n);
+				//System.out.println(hm.toString());
+				long n1 = Long.parseLong(hm.get(n));
+				// System.out.println("n->"+n);
+				// System.out.println("hashmap->"+hm.toString());
+				int status = addTupleToPage(tuple, n1, hm);
+				boolean configUpdate = MyStorage.removePBFileEntry(MyLHFile.getFileName());
+				configUpdate = upadteLHFile(MyLHFile);
+				System.out.println("------------------------");
+				MyStorage.serializeMap(MyStorage.PBFilesDirectory+"/LtoP.ser", hm);
+				
+				// System.out.println(configUpdate);
+
+			}
+		} catch (FileNotFoundException e) {
 			e.printStackTrace();
 		}
 	}
 	
-	private static void updateLHConfig() {
-		double ACL_now = e.getACL();
-		double ACL_Max_now = e.getACL_Max();
-		double ACL_Min_now = e.getACL_Min();
-		int NumOfPages_now = e.getNumOfPages();
-		int sP_now = e.getsP();
-		int M_now = e.getM();
-		
-		// write new, updated LHConfig:
-		JSONObject jo = new JSONObject();
+	private static boolean upadteLHFile(LHFile myLHFile) {
 		try {
-			jo.put("FileName", e.getName());
-			jo.put("homePage", e.getHomePage());
-			jo.put("LtoP_File", e.getLtoP_Map());
-			jo.put("M", M_now);
-			jo.put("sP", sP_now);
-			jo.put("NumOfPages", NumOfPages_now);
-			jo.put("ACL_Min", ACL_Min_now);
-			jo.put("ACL_Max", ACL_Max_now);
-			jo.put("ACL", ACL_now);
-			PrintWriter pw = new PrintWriter("LHConfig.json");
-			pw.write(jo.toString());
-			pw.flush();
-			pw.close();
-		} catch (JSONException | FileNotFoundException e) {
-			e.printStackTrace();
+			JsonParser parser = new JsonParser();
+			Object obj = parser.parse(new FileReader(MyStorage.PBFilesDirectory + "/FileIndex.json"));
+			JsonObject jsonObject = (JsonObject) obj;
+			JsonArray file = (JsonArray) jsonObject.get("PBFiles");
+			for (JsonElement f : file) {
+				JsonObject temp = f.getAsJsonObject();
+				String name = temp.get("fileName").getAsString();
+				if (name.equalsIgnoreCase(myLHFile.getFileName())) {
+					return false;
+				}
+			}
+
+			Gson gson = new Gson();
+			List<LHFile> entry = gson.fromJson(file, new TypeToken<List<LHFile>>() {
+			}.getType());
+			entry.add(myLHFile);
+			String json = "{\"PBFiles\":" + gson.toJson(entry) + "}";
+			try {
+				FileWriter f = new FileWriter(MyStorage.PBFilesDirectory + "/FileIndex.json", false);
+				f.write(json);
+				f.close();
+			} catch (IOException ie) {
+				ie.printStackTrace();
+			}
+		} catch (FileNotFoundException ex) {
+			ex.printStackTrace();
 		}
+		return true;
 	}
+
+//	private static void updateLHFile() {
+//		double ACL_now = e.getACL();
+//		double ACL_Max_now = e.getACL_Max();
+//		double ACL_Min_now = e.getACL_Min();
+//		int NumOfPages_now = e.getNumOfPages();
+//		int sP_now = e.getsP();
+//		int M_now = e.getM();
+//		
+//		// write new, updated LHConfig:
+//		JSONObject jo = new JSONObject();
+//		try {
+//			jo.put("FileName", e.getName());
+//			jo.put("homePage", e.getHomePage());
+//			jo.put("LtoP_File", e.getLtoP_Map());
+//			jo.put("M", M_now);
+//			jo.put("sP", sP_now);
+//			jo.put("NumOfPages", NumOfPages_now);
+//			jo.put("ACL_Min", ACL_Min_now);
+//			jo.put("ACL_Max", ACL_Max_now);
+//			jo.put("ACL", ACL_now);
+//			PrintWriter pw = new PrintWriter("LHConfig.json");
+//			pw.write(jo.toString());
+//			pw.flush();
+//			pw.close();
+//		} catch (JSONException | FileNotFoundException e) {
+//			e.printStackTrace();
+//		}
+//	}
 
 	private static void createLtoPfile(Map<Integer,Long> map, String path) {
 		JSONObject jo = new JSONObject();
@@ -215,13 +370,13 @@ public class LH {
 		}
 	}
 	
-	private void loadStorage(String folderName) {
-		try {
-			MyStorage.LoadStorage(folderName);
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-	}
+//	private void loadStorage(String folderName) {
+//		try {
+//			MyStorage.LoadStorage(folderName);
+//		} catch (Exception e) {
+//			e.printStackTrace();
+//		}
+//	}
 	
 	public static long byteArrayToLong(byte[] byteArray) {
 		long value = 0;
@@ -279,10 +434,153 @@ public class LH {
 		}
 	}
 	
+	public static void writeRecord(byte[] tuple, byte[] buffer, int offset) {
+		int l = 0;
+		for (int i = offset; i < offset + tuple.length; i++) {
+			buffer[i] = tuple[l++];
+		}
+	}
+	
+	public static int addTupleToPage(byte[] tuple, long n, HashMap<Integer, String> map) {
+		try {
+			System.out.println("key->" + byteArrayToInt(Arrays.copyOfRange(tuple, 0, 4)));
+			byte[] tempBuffer = new byte[MyStorage.pageSize];
+			if (n == -1) {
+				System.out.println("file does not exist");
+			}
+			MyStorage.ReadPage(n, tempBuffer);
+			byte[] no_of_records = new byte[4];
+			int l = 0;
+			for (int i = 8; i < 12; i++) {
+				no_of_records[l++] = tempBuffer[i];
+			}
+			int r = byteArrayToInt(no_of_records);
+			if (r == MyLHFile.getRecordsPerPage()) {
+				long next = getNextPage(tempBuffer);
+				long prev = n;
+				while(next != -1) {
+					prev = next;
+					MyStorage.ReadPage(next, tempBuffer);
+					next = getNextPage(tempBuffer);
+				}
+				r = getNoOfRecords(tempBuffer);
+				if(r == MyLHFile.getRecordsPerPage()) {
+					long nextPage = MyStorage.AllocatePage();
+					if(nextPage == -1) {
+						throw new RuntimeException();
+					}
+					byte[] new_page = new byte[MyStorage.pageSize];
+					putNextPagePointer(new_page, -1);
+					putNumberOfRecords(new_page, 1);
+					putNextPagePointer(tempBuffer, nextPage);
+					writeRecord(tuple, new_page, 25 + (0 * MyLHFile.getRecordLength()));
+					System.out.println("r->"+r+"offset"+(25 + (0 * MyLHFile.getRecordLength())));
+					MyStorage.WritePage(nextPage, new_page);
+					MyStorage.WritePage(prev, tempBuffer);
+					MyLHFile.setNumOfPages(MyLHFile.getNumOfPages() + 1);
+				}
+				else {
+					putNumberOfRecords(tempBuffer, r + 1);
+					writeRecord(tuple, tempBuffer, 25 + (r * MyLHFile.getRecordLength()));
+					MyStorage.WritePage(prev, tempBuffer);
+				}
+				
+
+			} else {
+
+				putNumberOfRecords(tempBuffer, r + 1);
+				writeRecord(tuple, tempBuffer, 25 + (r * MyLHFile.getRecordLength()));
+				MyStorage.WritePage(n, tempBuffer);
+				l = 0;
+				for (int i = 8; i < 12; i++) {
+					no_of_records[l++] = tempBuffer[i];
+				}
+				r = byteArrayToInt(no_of_records);
+			}
+			float acl = (float)MyLHFile.getNumOfPages() / ((float)(MyLHFile.getM() + MyLHFile.getsP()));
+			MyLHFile.setACL(acl);
+			System.out.println(acl);
+			while (acl > MyLHFile.getACL_MAX()) {
+				System.out.println("before"+acl);
+				split(map);
+				if (MyLHFile.getsP() < MyLHFile.getM() - 1) {
+					MyLHFile.setsP(MyLHFile.getsP() + 1);
+				} else {
+					MyLHFile.setM(MyLHFile.getM() * 2);
+					MyLHFile.setsP(0);
+				}
+				acl = (float)MyLHFile.getNumOfPages() / ((float)(MyLHFile.getM() + MyLHFile.getsP()));
+				MyLHFile.setACL(acl);
+				System.out.println("after"+acl);
+			}
+			// write the record into the page
+		} catch(RuntimeException e) {
+			System.out.println("Insufficient Storage");
+		}
+		catch (Exception e) {
+			System.out.println(e.getMessage());
+		}
+
+		return -1;
+	}
+	
+	public static void printPage(byte[] buffer) {
+		long nextPage = byteArrayToLong(Arrays.copyOfRange(buffer, 0, 8));
+		int noRecords = byteArrayToInt(Arrays.copyOfRange(buffer, 8, 12));
+		int start = 25, end = start + MyLHFile.getCurRecordLength();
+		System.out.println("NextPage:" + nextPage);
+		System.out.println("Number of Records:" + noRecords);
+		System.out.println("Records:");
+		for (int i = 0; i < noRecords; i++) {
+			System.out.println(LH.byteArrayToInt(Arrays.copyOfRange(buffer, start, start + 4)));
+			start = start + MyLHFile.getRecordLength();
+			end = start + MyLHFile.getCurRecordLength();
+		}
+	}
+	
+	public static void printStorage(HashMap<Integer, String> map) {
+		try {
+			for (Integer key : map.keySet()) {
+				System.out.println();
+				System.out.println("Chain:" + key);
+				
+				long cur = Long.parseLong(map.get(key));
+				long next = cur;
+				while (next != -1) {
+					cur = next;
+					byte[] buffer = new byte[MyStorage.pageSize];
+					MyStorage.ReadPage(cur, buffer);
+					printPage(buffer);
+					next = getNextPage(buffer);
+					System.out.println("next"+next);
+				}
+			}
+		} catch (Exception e) {
+			System.out.println(e.getMessage());
+		}
+
+	}
+	
 	public static void main(String[] args) {
-		initializeFileSystem();
-		createStorage(folderName, pageSize, nPages);
+		//initializeFileSystem();
+		//createStorage(folderName, pageSize, nPages);
 		//updateLHConfig();
 	}
 
 }
+
+class PageID {
+	byte[] tuple;
+	int id;
+	public PageID(byte[] tuple) {
+		this.tuple = new byte[tuple.length];
+		for(int i = 0; i < tuple.length; i++)
+			this.tuple[i] = tuple[i];
+		id =  ByteBuffer.wrap(Arrays.copyOfRange(tuple, 0, 4)).getInt();
+		
+	}
+	public int getKey() {
+		return id;
+	}
+}
+
