@@ -15,6 +15,8 @@ import java.io.FileOutputStream;
 import com.google.gson.*;
 import com.google.gson.reflect.TypeToken;
 
+import MyLH.LHFile;
+
 public class PBStorage {
 	public String PBFilesDirectory; // Folder where the storage exists
 	public RandomAccessFile PBFile; // Actual storage file
@@ -354,6 +356,154 @@ public class PBStorage {
 			System.out.println(err.getMessage());
 		}
 		
+	}
+	
+	public void loadStorage(String folderName) throws Exception {
+		String path = folderName + "/SimpleStorage";
+		this.PBFile = new RandomAccessFile(path, "rw");
+
+		this.fileSize = PBFile.length();
+
+		// Read bytes 4 to 7 which we used to store the number of pages
+		PBFile.seek(4);
+		this.numPages = PBFile.readInt();
+		this.PBFilesDirectory = folderName;
+
+		// Read the first 4 bytes of the file which we used to store the page size while
+		// creating the storage.
+		PBFile.seek(0);
+		this.pageSize = PBFile.readInt();
+
+		this.bitMapSize = (int) Math.ceil(this.numPages / 8.0);
+
+		if (this.bitMapSize % 16 != 0) {
+			this.bitMapSize = (this.bitMapSize / 16 + 1) * 16;
+		}
+		this.bitMapSize = this.bitMapSize + 16;
+
+		this.numAllocated = 0;
+		this.numDeallocated = 0;
+		this.numRead = 0;
+		this.numWritten = 0;
+	}
+	
+	public boolean addLHConfigEntry(String fileName, int homePageNumber, String LtoPFile, float aCL, float aCL_MAX,
+			float aCL_Min, int numOfPages, int sP, int m, int curRecordLength) {
+		try {
+			JsonParser parser = new JsonParser();
+			Object obj = parser.parse(new FileReader(this.PBFilesDirectory + "/FileIndex.json"));
+			JsonObject jsonObject = (JsonObject) obj;
+			JsonArray file = (JsonArray) jsonObject.get("PBFiles");
+			for (JsonElement f : file) {
+				JsonObject temp = f.getAsJsonObject();
+				String name = temp.get("fileName").getAsString();
+				if (name.equalsIgnoreCase(fileName)) {
+					return false;
+				}
+			}
+			LHFile e = new LHFile();
+			e.setFileName(fileName);
+			e.setHomePage(homePageNumber);
+			e.setLtoP_File(LtoPFile);
+			e.setACL(aCL);
+			e.setACL_MAX(aCL_MAX);
+			e.setACL_Min(aCL_Min);
+			e.setNumOfPages(numOfPages);
+			e.setsP(sP);
+			e.setM(m);
+			e.setCurTupleLength(curRecordLength);
+			Gson gson = new Gson();
+			List<LHFile> entry = gson.fromJson(file, new TypeToken<List<LHFile>>() {
+			}.getType());
+			entry.add(e);
+			String json = "{\"PBFiles\":" + gson.toJson(entry) + "}";
+			try {
+				FileWriter f = new FileWriter(this.PBFilesDirectory + "/FileIndex.json", false);
+				f.write(json);
+				f.close();
+			} catch (IOException ie) {
+				ie.printStackTrace();
+			}
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		}
+		return true;
+	}
+	
+	public String getLtoPFileName(String fileName) {
+		try {
+			JsonParser parser = new JsonParser();
+			Object obj = parser.parse(new FileReader(this.PBFilesDirectory + "/FileIndex.json"));
+			JsonObject jsonObject = (JsonObject) obj;
+			JsonArray file = (JsonArray) jsonObject.get("PBFiles");
+			for (JsonElement f : file) {
+				JsonObject temp = f.getAsJsonObject();
+
+				String name = temp.get("LtoP_File").getAsString();
+				return name;
+			}
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		}
+		return null;
+	}
+
+	public void createStorage(String folderName, int pageSize, int nfiles) throws Exception {
+
+		this.PBFilesDirectory = folderName;
+		this.fileSize = nfiles * pageSize;
+		this.pageSize = pageSize;
+		String path = folderName + "/SimpleStorage";
+		new File(folderName).mkdirs();
+		this.numPages = (int) (this.fileSize / this.pageSize);
+
+		this.bitMapSize = (int) Math.ceil(this.numPages / 8.0);
+
+		if (this.bitMapSize % 16 != 0) {
+			this.bitMapSize = (this.bitMapSize / 16 + 1) * 16;
+		}
+		// Allocating 16 extra bytes in the beginning for storage of parameters such as
+		// pagesize.
+		this.bitMapSize = this.bitMapSize + 16;
+		this.PBFile = new RandomAccessFile(path, "rw");
+		PBFile.seek(0);
+		// Write the pagesize to the first 4 bytes in the file.
+		PBFile.writeInt(pageSize);
+
+		// Write number of pages to the next 4 bytes in the file
+		PBFile.seek(4);
+		PBFile.writeInt(this.numPages);
+
+		PBFile.seek(0);
+
+		this.fileSize = this.fileSize + this.bitMapSize;
+		PBFile.setLength(fileSize);
+		PBFile.seek(16);
+		// Writing 0s to the randomaccessfile so that we physically claim the memory
+		// required for the storage.
+		// first writing for the bitmap
+		for (int i = 16; i < this.bitMapSize; i++) {
+			this.PBFile.write((byte) 0);
+		}
+		// Writing the file contents with 0s
+		for (int i = this.bitMapSize; i < this.fileSize; i++) {
+			PBFile.write((byte) 0);
+		}
+		// Create FileIndex.json in the folder
+		String jsonFile = folderName + "/" + "FileIndex.json";
+		File f = new File(jsonFile);
+		f.createNewFile();
+
+		String empty = "{\"PBFiles\":[]}";
+		FileWriter fw;
+		try {
+			fw = new FileWriter(new File(jsonFile));
+			fw.write(empty);
+			fw.close();
+		} catch (IOException ex) {
+			ex.printStackTrace();
+		}
+
 	}
 
 }

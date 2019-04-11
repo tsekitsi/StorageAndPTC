@@ -22,32 +22,32 @@ public class LHFile {
 	
 	private int recordsPerPage;
 
-	public int getCurRecordLength() {
+	public int getCurTupleLength() {
 		return curRecordLength;
 	}
 
 
-	public void setCurRecordLength(int curRecordLength) {
+	public void setCurTupleLength(int curRecordLength) {
 		this.curRecordLength = curRecordLength;
 	}
 	
 	
-	public int getRecordsPerPage() {
+	public int getTuplesPerPage() {
 		return recordsPerPage;
 	}
 
 
-	public void setRecordsPerPage(int recordsPerPage) {
+	public void setTuplesPerPage(int recordsPerPage) {
 		this.recordsPerPage = recordsPerPage;
 	}
 
 
-	public int getRecordLength() {
+	public int getTupleLength() {
 		return recordLength;
 	}
 
 
-	public void setRecordLength(int recordLength) {
+	public void setTupleLength(int recordLength) {
 		this.recordLength = recordLength;
 	}
 
